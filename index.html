@@ -264,6 +264,7 @@
     .unit-input input::placeholder { color: var(--dim); font-family: var(--font); font-size: 1.05rem; }
     .unit-input span { color: var(--muted); font-size: 0.85rem; font-weight: 700; white-space: nowrap; padding-left: 6px; }
     .note { margin: 10px 0 0; font-size: 0.76rem; color: var(--dim); line-height: 1.6; }
+    .warn-note { margin: 10px 0 0; font-size: 0.8rem; font-weight: 700; color: var(--warn); line-height: 1.6; }
 
     /* 選択ボタン（まとめ単位・端数の扱い） */
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -660,6 +661,7 @@
       <p id="result-empty">合計金額と人数を入れると、ここに結果が出ます。</p>
       <div id="result" hidden>
         <div class="hero-result" id="r-hero"></div>
+        <p class="warn-note" id="r-warn" hidden></p>
         <ul class="pay-list" id="r-list" style="margin-top:14px"></ul>
         <div class="summary">
           <div class="sum-box">
@@ -724,7 +726,7 @@
       const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const radio = (name) => document.querySelector('input[name="' + name + '"]:checked').value;
       const STEP = 100;   // スライダーは100円きざみ（−／＋ボタンも100円ずつ）
-      const totalNow = () => { const t = toNum($('total').value); return t && t > 0 ? t : 0; };
+      const totalNow = () => { const t = toNum($('total').value); return t && t > 0 ? Math.round(t) : 0; };
       // スライダーのいちばん右（合計金額。未入力のときは仮に3万円）
       const sliderMax = () => Math.max(STEP, Math.ceil((totalNow() || 30000) / STEP) * STEP);
 
@@ -805,7 +807,7 @@
           const countEl = el.querySelector('.group-count');
           countEl.addEventListener('input', function () {
             const n = toNum(countEl.value);
-            g.count = n === null ? 0 : Math.floor(n);
+            g.count = n === null ? 0 : Math.min(999, Math.floor(n));
             calculate();
           });
           countEl.addEventListener('blur', function () { countEl.value = g.count; });
@@ -854,7 +856,9 @@
         updateAutoAmounts();
         syncSliders();
 
-        const total = toNum($('total').value);
+        // 円未満は扱わない（入力欄を離れたときの表示「12,800」と同じ値で計算する）
+        const rawTotal = toNum($('total').value);
+        const total = rawTotal === null ? null : Math.round(rawTotal);
         const unit = Number(radio('unit'));
         const mode = radio('mode');
         const multi = groups.length > 1;
@@ -879,7 +883,8 @@
         const exact = base.count > 0 ? rest / base.count : 0;
         const q = exact / unit;
         // 小数のずれで 1単位ずれないように、わずかに余裕をもたせる
-        const basePer = (mode === 'up' ? Math.ceil(q - 1e-9) : Math.floor(q + 1e-9)) * unit;
+        // 「|| 0」は「-0円」と表示されないようにするため
+        const basePer = ((mode === 'up' ? Math.ceil(q - 1e-9) : Math.floor(q + 1e-9)) * unit) || 0;
 
         const nameOf = (g, i) => (multi ? (g.name.trim() || 'グループ' + (i + 1)) : 'みんな');
         const rows = groups.map((g, i) => ({ g: g, i: i, per: i === 0 ? basePer : g.amount }))
@@ -904,6 +909,13 @@
             + '<small>金額を決めた人だけで払います</small>';
         }
         $('r-hero').innerHTML = heroHtml;
+
+        // まとめ単位が大きすぎて、「普通」の人が0円になってしまうとき
+        const zeroPay = base.count > 0 && rest > 0 && basePer === 0;
+        $('r-warn').hidden = !zeroPay;
+        $('r-warn').textContent = zeroPay
+          ? '⚠ まとめ単位が大きいため、1人あたりが0円になり、幹事が残りを全部払う計算になっています。単位を小さくするか「多めに集める」を選んでください。'
+          : '';
 
         // 一覧
         const list = rows.map(function (r) {
