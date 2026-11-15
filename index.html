@@ -330,26 +330,60 @@
     .stepper button:hover { border-color: var(--sub); color: var(--sub); }
     .stepper .unit-input { --accent: var(--sub); border-left: none; border-right: none; min-height: 52px; }
     .stepper .unit-input input { text-align: center; }
-    .ratio {
-      flex: 1 1 140px;
-      min-width: 0;
-      display: flex; align-items: center; gap: 8px;
-      min-height: 52px;
-      padding: 0 10px;
+    .base-tag {
+      flex: 0 0 auto;
+      padding: 4px 10px;
+      border: 1px solid rgba(var(--sub-rgb), 0.5);
+      color: var(--sub);
+      font-size: 0.74rem; font-weight: 700;
+    }
+    /* 1人が払う額のスライダー */
+    .amount { margin-top: 12px; }
+    .amount-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .amount-head span { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); }
+    .amount-val { font-family: var(--font-en); font-weight: 700; font-size: 1.5rem; color: var(--main); font-variant-numeric: tabular-nums; }
+    .amount-val .u { font-family: var(--font); font-size: 0.6em; font-weight: 900; color: var(--muted); margin-left: 1px; }
+    .amount-row { display: flex; align-items: center; gap: 10px; }
+    .amount-step {
+      flex: 0 0 44px; height: 44px;
       border: 1px solid rgba(255, 255, 255, 0.2);
       background: var(--bg-2);
-      color: var(--muted); font-size: 0.8rem; font-weight: 700;
-    }
-    .ratio select {
-      flex: 1; min-width: 0;
-      height: 40px;
-      border: none; outline: none;
-      background: transparent;
       color: var(--text);
-      font-family: var(--font); font-size: 1rem; font-weight: 700;
+      font-family: var(--font-en); font-size: 1.2rem; font-weight: 700;
       cursor: pointer;
     }
-    .ratio select option { background: var(--bg-2); color: var(--text); }
+    .amount-step:hover { border-color: var(--main); color: var(--main); }
+    .amount-range {
+      --p: 0%;
+      flex: 1; min-width: 0;
+      height: 44px;
+      margin: 0;
+      background: transparent;
+      -webkit-appearance: none; appearance: none;
+      cursor: pointer;
+    }
+    .amount-range::-webkit-slider-runnable-track {
+      height: 8px; border-radius: 4px;
+      background: linear-gradient(90deg, var(--main) var(--p), rgba(255, 255, 255, 0.12) var(--p));
+    }
+    .amount-range::-moz-range-track { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); }
+    .amount-range::-moz-range-progress { height: 8px; border-radius: 4px; background: var(--main); }
+    .amount-range::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 28px; height: 28px; margin-top: -10px;
+      border-radius: 50%;
+      background: #fff;
+      border: 4px solid var(--main);
+      box-shadow: 0 0 14px rgba(var(--main-rgb), 0.7);
+    }
+    .amount-range::-moz-range-thumb {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      border: 4px solid var(--main);
+      box-shadow: 0 0 14px rgba(var(--main-rgb), 0.7);
+    }
+    .amount-range:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
     .add-group {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       width: 100%;
@@ -526,7 +560,7 @@
 
     /* ---------- 角の丸み（common.css の --radius で一括管理） ---------- */
     .card, .card-icon, .unit-input, #result-empty, .chips span, .group, .group-name, .group-del,
-    .ratio, .add-group, .hero-result, .pay-list, .summary, .act, .toast, .ad-slot, .footer-home { border-radius: var(--radius, 8px); }
+    .base-tag, .amount-step, .add-group, .hero-result, .pay-list, .summary, .act, .toast, .ad-slot, .footer-home { border-radius: var(--radius, 8px); }
     .stepper button:first-child { border-radius: var(--radius, 8px) 0 0 var(--radius, 8px); }
     .stepper button:last-child { border-radius: 0 var(--radius, 8px) var(--radius, 8px) 0; }
     .stepper .unit-input { border-radius: 0; }
@@ -584,11 +618,11 @@
     <section class="card people-card">
       <div class="card-head">
         <span class="card-icon" aria-hidden="true">👥</span>
-        <h2><span class="en">PEOPLE</span>人数と払う割合</h2>
+        <h2><span class="en">PEOPLE</span>人数と払う額</h2>
       </div>
       <div id="groups"></div>
-      <button type="button" class="add-group" id="add-group">＋ 払う額を変える人を追加（傾斜）</button>
-      <p class="note">※「上司は多め」「飲まない人は少なめ」など、払う割合を変えたいときはグループを追加してください。割合は「普通（×1）」に対しての倍率です。</p>
+      <button type="button" class="add-group" id="add-group">＋ 払う額を決める人を追加（多め・少なめ）</button>
+      <p class="note">※「上司は多め」「飲まない人は少なめ」など、払う額を変えたい人はグループを追加して、1人いくら払うかをスライダーで決めてください。残りの金額を「普通」の人で等分します。</p>
       <p class="people-sum" id="people-sum"></p>
     </section>
 
@@ -663,19 +697,16 @@
     (function () {
       const STORAGE_KEY = 'warikanSettings';
       const $ = (id) => document.getElementById(id);
-      const RATIOS = [
-        { v: 2,   t: '×2（倍）' },
-        { v: 1.5, t: '×1.5（多め）' },
-        { v: 1.2, t: '×1.2（少し多め）' },
-        { v: 1,   t: '×1（普通）' },
-        { v: 0.8, t: '×0.8（少し少なめ）' },
-        { v: 0.7, t: '×0.7（少なめ）' },
-        { v: 0.5, t: '×0.5（半額）' },
-        { v: 0,   t: '×0（払わない）' },
+      // 追加グループのおすすめ額（「普通」の人の何倍くらいか）。スライダーを動かすまでは、この目安で自動に入る
+      const PRESETS = [
+        { name: '多めに払う人', hint: 1.5 },
+        { name: '少なめの人', hint: 0.7 },
+        { name: 'ごちそうになる人', hint: 0 },
       ];
 
-      // グループ：{ name, count, ratio }
-      let groups = [{ name: 'みんな', count: 4, ratio: 1 }];
+      // groups[0] … 「普通」の人（残りを等分する）
+      // groups[1〜] … 1人いくら払うかを決める人：{ name, count, amount, hint, auto }
+      let groups = [{ name: 'みんな', count: 4 }];
 
       // ---- ユーティリティ ----
       // 全角数字・カンマ・「円」つきの入力も数値として読む
@@ -692,7 +723,10 @@
       const yenHtml = (n) => fmt(n) + '<span class="u">円</span>';
       const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const radio = (name) => document.querySelector('input[name="' + name + '"]:checked').value;
-      const ratioLabel = (r) => (RATIOS.find((x) => x.v === r) || { t: '×' + r }).t;
+      const STEP = 100;   // スライダーは100円きざみ（−／＋ボタンも100円ずつ）
+      const totalNow = () => { const t = toNum($('total').value); return t && t > 0 ? t : 0; };
+      // スライダーのいちばん右（合計金額。未入力のときは仮に3万円）
+      const sliderMax = () => Math.max(STEP, Math.ceil((totalNow() || 30000) / STEP) * STEP);
 
       // ---- 設定の保存（まとめ単位と端数の扱いだけ） ----
       function loadSettings() {
@@ -708,6 +742,29 @@
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ unit: radio('unit'), mode: radio('mode') })); } catch (e) { /* 無視 */ }
       }
 
+      // スライダーを動かしていないグループは、合計金額や人数に合わせて目安の額を入れ直す
+      function updateAutoAmounts() {
+        const total = totalNow();
+        const weight = groups.reduce((s, g, i) => s + g.count * (i === 0 ? 1 : g.hint), 0);
+        groups.forEach(function (g, i) {
+          if (i === 0 || !g.auto) return;
+          g.amount = total > 0 && weight > 0 ? Math.round(total * g.hint / weight / STEP) * STEP : 0;
+        });
+      }
+      // スライダーと金額の表示を、今の値に合わせる
+      function syncSliders() {
+        const max = sliderMax();
+        document.querySelectorAll('.group[data-i]').forEach(function (el) {
+          const g = groups[Number(el.dataset.i)];
+          if (!g || g.amount == null) return;
+          const range = el.querySelector('.amount-range');
+          range.max = Math.max(max, g.amount);
+          range.value = g.amount;
+          range.style.setProperty('--p', (range.max > 0 ? g.amount / range.max * 100 : 0) + '%');
+          el.querySelector('.amount-val').innerHTML = yenHtml(g.amount);
+        });
+      }
+
       // ---- グループの表示 ----
       function renderGroups() {
         const box = $('groups');
@@ -715,13 +772,15 @@
         const multi = groups.length > 1;
         groups.forEach(function (g, i) {
           const el = document.createElement('div');
-          el.className = 'group';
-          const opts = RATIOS.map((r) => '<option value="' + r.v + '"' + (r.v === g.ratio ? ' selected' : '') + '>' + r.t + '</option>').join('');
+          el.className = 'group' + (i === 0 && multi ? ' base' : '');
+          el.dataset.i = i;
           el.innerHTML =
             (multi
               ? '<div class="group-top">'
                 + '<input class="group-name" type="text" maxlength="20" value="' + esc(g.name) + '" aria-label="グループの名前" placeholder="名前（例 上司）">'
-                + '<button type="button" class="group-del" aria-label="このグループを消す">✕</button>'
+                + (i === 0
+                  ? '<span class="base-tag">残りを等分</span>'
+                  : '<button type="button" class="group-del" aria-label="このグループを消す">✕</button>')
                 + '</div>'
               : '')
             + '<div class="group-row">'
@@ -730,8 +789,16 @@
             + '<div class="unit-input"><input class="group-count" type="text" inputmode="numeric" value="' + g.count + '" aria-label="人数"><span>人</span></div>'
             + '<button type="button" data-step="1" aria-label="1人ふやす">＋</button>'
             + '</div>'
-            + (multi ? '<label class="ratio">割合<select class="group-ratio">' + opts + '</select></label>' : '')
-            + '</div>';
+            + '</div>'
+            + (i > 0
+              ? '<div class="amount">'
+                + '<div class="amount-head"><span>1人が払う額</span><b class="amount-val"></b></div>'
+                + '<div class="amount-row">'
+                + '<button type="button" class="amount-step" data-amt="-1" aria-label="100円へらす">−</button>'
+                + '<input class="amount-range" type="range" min="0" step="' + STEP + '" aria-label="1人が払う額">'
+                + '<button type="button" class="amount-step" data-amt="1" aria-label="100円ふやす">＋</button>'
+                + '</div></div>'
+              : '');
 
           const nameEl = el.querySelector('.group-name');
           if (nameEl) nameEl.addEventListener('input', function () { g.name = nameEl.value; calculate(); });
@@ -749,12 +816,21 @@
               calculate();
             });
           });
-          const ratioEl = el.querySelector('.group-ratio');
-          if (ratioEl) ratioEl.addEventListener('change', function () { g.ratio = Number(ratioEl.value); calculate(); });
+          const range = el.querySelector('.amount-range');
+          if (range) {
+            range.addEventListener('input', function () { g.amount = Number(range.value); g.auto = false; calculate(); });
+            el.querySelectorAll('[data-amt]').forEach(function (b) {
+              b.addEventListener('click', function () {
+                g.amount = Math.max(0, g.amount + Number(b.dataset.amt) * STEP);
+                g.auto = false;
+                calculate();
+              });
+            });
+          }
           const delEl = el.querySelector('.group-del');
           if (delEl) delEl.addEventListener('click', function () {
             groups.splice(i, 1);
-            if (groups.length === 1 && groups[0].ratio !== 1) groups[0].ratio = 1;
+            if (groups.length === 1 && groups[0].name === '普通') groups[0].name = 'みんな';
             renderGroups();
             calculate();
           });
@@ -764,13 +840,8 @@
 
       $('add-group').addEventListener('click', function () {
         if (groups.length === 1 && groups[0].name === 'みんな') groups[0].name = '普通';
-        const presets = [
-          { name: '多めに払う人', ratio: 1.5 },
-          { name: '少なめの人', ratio: 0.7 },
-          { name: 'ごちそうになる人', ratio: 0 },
-        ];
-        const p = presets[(groups.length - 1) % presets.length];
-        groups.push({ name: p.name, count: 1, ratio: p.ratio });
+        const p = PRESETS[(groups.length - 1) % PRESETS.length];
+        groups.push({ name: p.name, count: 1, hint: p.hint, amount: 0, auto: true });
         renderGroups();
         calculate();
         const names = document.querySelectorAll('.group-name');
@@ -780,61 +851,69 @@
       // ---- 計算 ----
       let lastText = '';
       function calculate() {
+        updateAutoAmounts();
+        syncSliders();
+
         const total = toNum($('total').value);
         const unit = Number(radio('unit'));
         const mode = radio('mode');
+        const multi = groups.length > 1;
+        const base = groups[0];
+        const fixed = groups.slice(1);
         const people = groups.reduce((s, g) => s + g.count, 0);
-        const weight = groups.reduce((s, g) => s + g.count * g.ratio, 0);
+        const fixedSum = fixed.reduce((s, g) => s + g.amount * g.count, 0);
 
-        $('people-sum').innerHTML = groups.length > 1 ? '合計 <b>' + people + '</b> 人' : '';
+        $('people-sum').innerHTML = multi ? '合計 <b>' + people + '</b> 人' : '';
 
         let msg = '';
         if (total === null || total <= 0) msg = '合計金額を入れると、ここに結果が出ます。';
         else if (people <= 0) msg = '人数を1人以上にしてください。';
-        else if (weight <= 0) msg = '全員が「×0（払わない）」になっています。払う人の割合を変えてください。';
+        else if (base.count <= 0 && fixedSum <= 0) msg = '払う人がいません。人数か、払う額を変えてください。';
+        else if (base.count > 0 && fixedSum > total) msg = '金額を決めた人の分（' + yen(fixedSum) + '）だけで、会計の ' + yen(total) + ' をこえています。スライダーで額を下げてください。';
         $('result').hidden = !!msg;
         $('result-empty').hidden = !msg;
         if (msg) { $('result-empty').textContent = msg; return; }
 
-        // 1人あたりの金額（グループごと）
-        const rows = groups.map(function (g, i) {
-          const exact = total * g.ratio / weight;
-          const q = exact / unit;
-          // 小数のずれで 1単位ずれないように、わずかに余裕をもたせる
-          const per = (mode === 'up' ? Math.ceil(q - 1e-9) : Math.floor(q + 1e-9)) * unit;
-          return { g: g, i: i, exact: exact, per: per };
-        }).filter((r) => r.g.count > 0);
+        // 「普通」の人は、残りを等分して、まとめ単位で切り上げ／切り捨て
+        const rest = total - fixedSum;
+        const exact = base.count > 0 ? rest / base.count : 0;
+        const q = exact / unit;
+        // 小数のずれで 1単位ずれないように、わずかに余裕をもたせる
+        const basePer = (mode === 'up' ? Math.ceil(q - 1e-9) : Math.floor(q + 1e-9)) * unit;
+
+        const nameOf = (g, i) => (multi ? (g.name.trim() || 'グループ' + (i + 1)) : 'みんな');
+        const rows = groups.map((g, i) => ({ g: g, i: i, per: i === 0 ? basePer : g.amount }))
+          .filter((r) => r.g.count > 0);
 
         const collected = rows.reduce((s, r) => s + r.per * r.g.count, 0);
         const diff = collected - total;   // プラス＝余り・マイナス＝不足
 
-        // 幹事（いちばん上のグループの1人）が不足分を払う
-        const kanjiRow = rows.find((r) => r.g.ratio > 0) || rows[0];
-        const multi = groups.length > 1;
-        const nameOf = (r) => (multi ? (r.g.name.trim() || 'グループ' + (r.i + 1)) : 'みんな');
+        // 幹事（「普通」の人のうち1人。いなければ、いちばん上のグループの1人）が不足分を払う
+        const kanjiRow = rows.find((r) => r.i === 0) || rows.find((r) => r.per > 0) || rows[0];
 
         // いちばん大きく出す金額
-        const main = multi ? null : rows[0];
         let heroHtml;
-        if (main) {
-          heroHtml = '<div class="cap">1人あたり</div><div class="big">' + yenHtml(main.per) + '</div>'
-            + '<small>' + yen(total) + ' ÷ ' + people + '人'
-            + (Math.abs(main.exact - main.per) > 0.005 ? ' ＝ ' + main.exact.toLocaleString('ja-JP', { maximumFractionDigits: 1 }) + '円' : '') + '</small>';
+        if (base.count > 0) {
+          heroHtml = '<div class="cap">' + (multi ? esc(nameOf(base, 0)) + ' ' : '') + '1人あたり</div><div class="big">' + yenHtml(basePer) + '</div>'
+            + '<small>' + (multi
+              ? '残り ' + yen(rest) + ' ÷ ' + base.count + '人'
+              : yen(total) + ' ÷ ' + people + '人')
+            + (Math.abs(exact - basePer) > 0.005 ? ' ＝ ' + exact.toLocaleString('ja-JP', { maximumFractionDigits: 1 }) + '円' : '') + '</small>';
         } else {
-          const base = rows.find((r) => r.g.ratio === 1) || rows[0];
-          heroHtml = '<div class="cap">' + esc(nameOf(base)) + ' 1人あたり</div><div class="big">' + yenHtml(base.per) + '</div>'
-            + '<small>' + yen(total) + ' を ' + people + '人で傾斜つき割り勘</small>';
+          heroHtml = '<div class="cap">集まる金額</div><div class="big">' + yenHtml(collected) + '</div>'
+            + '<small>金額を決めた人だけで払います</small>';
         }
         $('r-hero').innerHTML = heroHtml;
 
         // 一覧
         const list = rows.map(function (r) {
-          return '<li><div class="pay-who"><b>' + esc(nameOf(r)) + '</b><small>' + r.g.count + '人' + (multi ? '・' + ratioLabel(r.g.ratio) : '') + '</small></div>'
+          const note = !multi ? '' : r.i === 0 ? '・残りを等分' : '・金額指定';
+          return '<li><div class="pay-who"><b>' + esc(nameOf(r.g, r.i)) + '</b><small>' + r.g.count + '人' + note + '</small></div>'
             + '<div class="pay-amt"><div class="v">' + yenHtml(r.per) + '</div><small>1人あたり' + (r.g.count > 1 ? '（計 ' + yen(r.per * r.g.count) + '）' : '') + '</small></div></li>';
         });
         if (diff < 0 && kanjiRow) {
           const pay = kanjiRow.per - diff;
-          list.push('<li class="kanji"><div class="pay-who"><b>幹事</b><small>' + (multi ? esc(nameOf(kanjiRow)) + 'のうち' : '') + '1人が不足分も払う</small></div>'
+          list.push('<li class="kanji"><div class="pay-who"><b>幹事</b><small>' + (multi ? esc(nameOf(kanjiRow.g, kanjiRow.i)) + 'のうち' : '') + '1人が不足分も払う</small></div>'
             + '<div class="pay-amt"><div class="v">' + yenHtml(pay) + '</div><small>' + yen(kanjiRow.per) + ' ＋ 不足 ' + yen(-diff) + '</small></div></li>');
         }
         $('r-list').innerHTML = list.join('');
@@ -863,7 +942,7 @@
         // コピー・LINE用の文章
         const lines = ['【割り勘】合計 ' + yen(total) + '／' + people + '人'];
         rows.forEach(function (r) {
-          lines.push('・' + nameOf(r) + (multi ? '（' + r.g.count + '人）' : '') + '：1人 ' + yen(r.per));
+          lines.push('・' + nameOf(r.g, r.i) + (multi ? '（' + r.g.count + '人）' : '') + '：1人 ' + yen(r.per));
         });
         if (diff < 0 && kanjiRow) lines.push('・幹事：' + yen(kanjiRow.per - diff) + '（不足分 ' + yen(-diff) + ' 込み）');
         if (diff > 0) lines.push('集金 ' + yen(collected) + '（余り ' + yen(diff) + '）');
